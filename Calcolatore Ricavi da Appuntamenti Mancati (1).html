@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Calcolatore Ricavi da Appuntamenti Mancati</title>
+<style>
+body{font-family:Arial,Helvetica,sans-serif;margin:24px;background:#f6f8fb;color:#1b1f23}
+.container{max-width:1180px;margin:auto}
+.card{background:#fff;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.08);padding:20px;margin-bottom:22px}
+h1{margin:0 0 8px;color:#1f4e78}
+.subtitle{color:#555;margin-bottom:16px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+label{display:block;font-size:13px;color:#334;margin-bottom:6px}
+input{width:100%;padding:10px;border:1px solid #c7d0db;border-radius:8px;font-size:16px;box-sizing:border-box}
+table{width:100%;border-collapse:collapse;margin-top:10px}
+th,td{border:1px solid #d9e1ea;padding:10px;text-align:center}
+th{background:#d9eaf7}
+.metric-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}
+.metric{background:#eaf2f8;border-radius:10px;padding:14px}
+.metric .label{font-size:12px;color:#445}
+.metric .value{font-size:26px;font-weight:700;color:#1f4e78;margin-top:6px}
+.footer{font-size:12px;color:#666;margin-top:10px}
+@media(max-width:900px){.grid,.metric-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="container">
+<div class="card">
+<h1>Calcolatore Ricavi da Appuntamenti Mancati e Cure Preventive</h1>
+<div class="subtitle">Stima l'opportunità di ricavo annuale migliorando il completamento degli appuntamenti raccomandati per cani e gatti.</div>
+<div class="grid">
+<div><label>Popolazione cani</label><input id="dogs" type="number" value="1000"></div>
+<div><label>Popolazione gatti</label><input id="cats" type="number" value="500"></div>
+<div><label>Tariffa media visita (€)</label><input id="fee" type="number" value="75"></div>
+<div><label>Appuntamenti raccomandati per cane / anno</label><input id="apptDog" type="number" value="1"></div>
+<div><label>Appuntamenti raccomandati per gatto / anno</label><input id="apptCat" type="number" value="1"></div>
+<div><label>Tasso di completamento attuale (%)</label><input id="current" type="number" value="50"></div>
+<div><label>Scenario A – Moderato (%)</label><input id="s1" type="number" value="60"></div>
+<div><label>Scenario B – Elevato (%)</label><input id="s2" type="number" value="75"></div>
+<div><label>Scenario C – Obiettivo (%)</label><input id="s3" type="number" value="90"></div>
+<div><label>Orizzonte di analisi (anni)</label><input id="years" type="number" value="8"></div>
+</div></div>
+<div class="card"><h2>Situazione attuale</h2><div class="metric-grid">
+<div class="metric"><div class="label">Visite annuali raccomandate</div><div class="value" id="totalVisits">0</div></div>
+<div class="metric"><div class="label">Visite completate oggi</div><div class="value" id="completedBase">0</div></div>
+<div class="metric"><div class="label">Visite mancate/non realizzate</div><div class="value" id="missedBase">0</div></div>
+<div class="metric"><div class="label">Ricavi annuali attuali</div><div class="value" id="revenueBase">€0</div></div>
+<div class="metric"><div class="label">Miglior incremento annuo</div><div class="value" id="bestAnnual">€0</div></div>
+<div class="metric"><div class="label">Miglior incremento cumulato</div><div class="value" id="bestCum">€0</div></div>
+</div></div>
+<div class="card"><h2>Analisi degli scenari</h2><table><thead><tr><th>Scenario</th><th>Conformità</th><th>Visite completate</th><th>Visite recuperate vs base</th><th>Ricavi annuali visite</th><th>Ricavi incrementali annui</th><th>Ricavi cumulati</th></tr></thead><tbody id="scenarioBody"></tbody></table>
+<div class="footer">Formula: Visite recuperate = (Popolazione cani × appuntamenti cane/anno + Popolazione gatti × appuntamenti gatto/anno) × conformità scenario − visite completate baseline.</div></div>
+</div>
+<script>
+const byId=id=>document.getElementById(id);
+function money(v){return new Intl.NumberFormat('it-IT',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(v)}
+function number(v){return new Intl.NumberFormat('it-IT',{maximumFractionDigits:0}).format(v)}
+function calc(){
+  const dogCount=+byId('dogs').value||0;
+  const catCount=+byId('cats').value||0;
+  const visitFee=+byId('fee').value||0;
+  const dogAppointments=+byId('apptDog').value||0;
+  const catAppointments=+byId('apptCat').value||0;
+  const currentRate=(+byId('current').value||0)/100;
+  const analysisYears=+byId('years').value||1;
+  const scenarios=[['Baseline',currentRate],['Scenario A – Moderato',(+byId('s1').value||0)/100],['Scenario B – Elevato',(+byId('s2').value||0)/100],['Scenario C – Obiettivo',(+byId('s3').value||0)/100]];
+  const totalVisits=dogCount*dogAppointments+catCount*catAppointments;
+  const completedBase=totalVisits*currentRate;
+  const missedBase=totalVisits-completedBase;
+  const revenueBase=completedBase*visitFee;
+  byId('totalVisits').textContent=number(totalVisits);
+  byId('completedBase').textContent=number(completedBase);
+  byId('missedBase').textContent=number(missedBase);
+  byId('revenueBase').textContent=money(revenueBase);
+  let body='',bestAnnual=0,bestCum=0;
+  scenarios.forEach(([name,rate])=>{const completed=totalVisits*rate;const rec=completed-completedBase;const annual=completed*visitFee;const inc=annual-revenueBase;const cum=inc*analysisYears;if(inc>bestAnnual)bestAnnual=inc;if(cum>bestCum)bestCum=cum;body+=`<tr><td>${name}</td><td>${Math.round(rate*100)}%</td><td>${number(completed)}</td><td>${number(rec)}</td><td>${money(annual)}</td><td>${money(inc)}</td><td>${money(cum)}</td></tr>`});
+  byId('scenarioBody').innerHTML=body;
+  byId('bestAnnual').textContent=money(bestAnnual);
+  byId('bestCum').textContent=money(bestCum);
+}
+for(const input of document.querySelectorAll('input'))input.addEventListener('input',calc);
+calc();
+</script>
+</body></html>
